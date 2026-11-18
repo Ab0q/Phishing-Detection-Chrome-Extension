@@ -31,6 +31,9 @@ summary { cursor: pointer; font-weight: 600; }
 .list.intel .muted { flex: none; text-align: right; font-size: 11.5px; }
 .btn { font: 600 13px inherit; font-family: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
 .btn.small { padding: 5px 10px; font-size: 12px; }
+.btn.wide { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 28px); margin: 4px 14px 0; padding: 9px 12px; }
+.pill { display: inline-block; min-width: 20px; padding: 1px 7px; border-radius: 10px; background: rgba(255,255,255,.25); font-size: 12px; }
+.pill.new { background: #E24B4A; }
 .row { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; margin: 6px 0; }
 .tip { margin: 10px 14px 14px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--soft); font-size: 12.5px; }
 .switch { position: relative; width: 40px; height: 22px; flex: none; }

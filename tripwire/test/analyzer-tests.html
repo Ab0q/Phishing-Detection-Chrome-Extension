@@ -4,6 +4,7 @@
 <script src="../src/data.js"></script>
 <script src="../src/analyzer.js"></script>
 <script src="../src/intel.js"></script>
+<script src="../src/lessons.js"></script>
 <script>
 const A = PG_Analyzer;
 const out = [];
@@ -78,6 +79,47 @@ expectCat('Sender domain on phishing list', { senderEmail: 'alerts@bank-verify.e
   T([['bank-verify.example', { cat: 'phishing', source: 'CERT Polska warning list', matched: 'bank-verify.example' }]]), 'phishing');
 // clean lookup result (null) must not flag
 check('Lookup returned clean (null)', { senderName: 'News', senderEmail: 'news@site.example', subject: 'Read', body: 'An article you might like to read today.', links: [{ href: 'https://good.example/a', text: 'Read more' }] }, 'safe', T([['good.example', null]]));
+
+// ---------- review history + lessons (src/lessons.js) ----------
+const Ls = PG_Lessons;
+function ok(name, cond, detail) { cond ? pass++ : fail++; out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${detail ? '  ' + detail : ''}`); }
+{
+  // Every warning sign the analyzer can raise must have a lesson.
+  const ids = ['js-link', 'data-link', 'known-bad-link', 'ip-link', 'punycode-link', 'lookalike-link', 'at-link', 'tld-link', 'short-link', 'http-link',
+    'port-link', 'deep-link', 'mismatch-link', 'brand-text-link', 'known-bad-sender', 'unicode-sender', 'lookalike-sender', 'brand-freemail', 'brand-mismatch',
+    'name-email-mismatch', 'org-freemail', 'tld-sender', 'risky-attachment', 'form', 'brand-impersonation', 'combo-pressure-ask',
+    ...Object.keys(PG_DATA.PHRASES).map((c) => 'content-' + c)];
+  const missing = ids.filter((id) => !Ls.LESSONS[id]);
+  ok('lessons: every analyzer signal has a lesson', !missing.length, missing.join(', '));
+
+  const body = 'Dear Customer, We noticed unusual activity on your PayPal account. SECRET-BODY-MARKER Your account will be closed within 24 hours unless you confirm your password.';
+  const res = A.analyzeEmail({ context: 'open', senderName: 'PayPal', senderEmail: 'service@paypa1-security.com', subject: 'Your account has been limited', body,
+    links: [{ href: 'http://198.51.100.23/secure', text: 'www.paypal.com' }] }, { blocked: new Set(['paypa1-security.com']) });
+  const rec = Ls.buildRecord(res, { key: 'k1', subject: 'Your account has been limited', site: 'mail.google.com', provider: 'Gmail', partial: false, now: 1000 });
+  const json = JSON.stringify(rec);
+  ok('history: record never contains the email body', !json.includes('SECRET-BODY-MARKER') && !('summary' in rec) && !('body' in rec));
+  ok('history: record keeps verdict, sender and reasons', rec.level === 'phishing' && rec.score === 0 && rec.sender.email === 'service@paypa1-security.com'
+    && rec.signals.some((s) => s.id === 'lookalike-sender') && rec.links.length > 0, `${rec.signals.length} signals, ${rec.links.length} links`);
+
+  const partial = Object.assign({}, rec, { partial: true, signals: rec.signals.slice(0, 1), lastSeen: 5000 });
+  const kept = Ls.mergeRecord(Object.assign({}, rec, { reviewed: true }), partial);
+  ok('history: inbox-list sighting never replaces a full check', !kept.partial && kept.signals.length === rec.signals.length && kept.lastSeen === 5000 && kept.reviewed);
+  const sus = Object.assign({}, rec, { level: 'suspicious', reviewed: true, firstSeen: 10 });
+  const worse = Ls.mergeRecord(sus, Object.assign({}, rec, { lastSeen: 9000 }));
+  ok('history: getting worse (suspicious → phishing) marks it unreviewed again', worse.level === 'phishing' && !worse.reviewed && worse.firstSeen === 10);
+
+  const many = Array.from({ length: Ls.MAX_RECORDS + 25 }, (_, i) => Object.assign({}, rec, { key: 'k' + i, lastSeen: i }));
+  const merged = Ls.mergeInto([], many);
+  ok('history: capped and newest first', merged.length === Ls.MAX_RECORDS && merged[0].lastSeen === Ls.MAX_RECORDS + 24);
+
+  let seed = 7; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const opts = Ls.quizOptions(rec, rand);
+  const correct = opts.filter((o) => o.correct).map((o) => o.id).sort();
+  const expected = [...new Set(rec.signals.map((s) => s.id))].filter((id) => Ls.LESSONS[id] && Ls.LESSONS[id].topic !== 'Known threats').sort();
+  ok('quiz: correct answers are exactly the signs a person could spot', JSON.stringify(correct) === JSON.stringify(expected), correct.join(','));
+  ok('quiz: has at least 3 wrong options and no duplicates', opts.filter((o) => !o.correct).length >= 3 && new Set(opts.map((o) => o.id)).size === opts.length
+    && new Set(opts.map((o) => o.skill)).size === opts.length);
+}
 
 // ---------- real compiled list: index it like the background does and check for false positives ----------
 (async () => {

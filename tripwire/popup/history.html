@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tripwire — Flagged email review</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="history.css">
+</head>
+<body>
+  <header class="top">
+    <img src="../icons/icon48.png" alt="" width="36" height="36">
+    <div class="ht">
+      <h1>Trip<span class="wire">wire</span> · Flagged email review</h1>
+      <p class="muted">Every email Tripwire flagged on this computer, with what gave it away and how to spot it yourself next time.</p>
+    </div>
+    <button id="clearAll" class="btn ghost">Clear history</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <main class="layout">
+    <aside class="side">
+      <div class="filters" role="tablist" aria-label="Filter flagged emails">
+        <button data-filter="all" class="chip on">All</button>
+        <button data-filter="new" class="chip">Not reviewed</button>
+        <button data-filter="phishing" class="chip">Known phishing</button>
+        <button data-filter="suspicious" class="chip">Suspicious</button>
+      </div>
+      <input id="search" type="search" placeholder="Search sender or subject…" aria-label="Search flagged emails">
+      <div id="trickFilter" class="trickfilter" hidden></div>
+      <ul id="list" class="list" aria-label="Flagged emails"></ul>
+    </aside>
+    <section id="detail" class="detail" aria-live="polite"></section>
+  </main>
+
+  <footer class="muted foot">Stored only on this device. Tripwire keeps the sender, subject, risky links and the short phrases that triggered each warning, never the full email text. Links here are shown as text and can't be clicked, on purpose.</footer>
+
+  <script src="../src/data.js"></script>
+  <script src="../src/analyzer.js"></script>
+  <script src="../src/lessons.js"></script>
+  <script src="history.js"></script>
+</body>
+</html>

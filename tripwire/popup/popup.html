@@ -29,6 +29,10 @@
     <div><b id="sWarn">0</b><span>risky clicks stopped</span></div>
   </div>
 
+  <button id="historyBtn" class="btn wide" title="See every email Tripwire flagged and learn why it was dangerous">
+    Review flagged emails <span id="historyCount" class="pill">0</span>
+  </button>
+
   <details class="box legend" open>
     <summary>What the colours mean</summary>
     <p><span class="dot r"></span><b>Red</b> — known phishing: the sender or a link is on a list of confirmed scams, or you reported it. Don't click, don't reply. Report it.</p>
@@ -49,7 +53,8 @@
 
   <details class="box">
     <summary>Privacy &amp; known-threat lists</summary>
-    <p class="muted">Every email is checked <b>on your computer</b>. Email content is never sent, saved or shared. Only counts and your own trusted/reported lists are stored, on this device.</p>
+    <p class="muted">Every email is checked <b>on your computer</b>. Email content is never sent or shared. Stored on this device only: counts, your trusted/reported lists and, if turned on below, a review history of flagged emails (sender, subject, risky links and the short phrases that triggered a warning, never the full email text).</p>
+    <label class="row"><input type="checkbox" id="keepHistory"> Keep a review history of flagged emails on this device</label>
     <p class="muted" id="feedInfo">Loading threat lists…</p>
     <ul id="intelList" class="list intel"></ul>
     <label class="row"><input type="checkbox" id="useFeed"> Keep these lists up to date automatically (downloads public lists twice a day; sends nothing about you)</label>

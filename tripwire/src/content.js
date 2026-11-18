@@ -1,12 +1,16 @@
 // Main content script: scans inbox rows and opened emails, highlights, shows banner, guards link clicks.
-// Privacy: email text is analysed in memory only. Nothing is stored except counts and the user's own trust/report lists.
+// Privacy: email text is analysed in memory only. Stored on this device: counts, the user's own trust/report lists and,
+// if "keep review history" is on, a short record of each flagged email (sender, subject, score, risky links, reasons with
+// the short phrases that matched; never the body).
 (function () {
   'use strict';
   if (window.top !== window && !/mail\.google\.com|outlook\./.test(location.hostname)) return; // skip ads/iframes
-  const A = window.PG_Analyzer, P = window.PG_Providers, UI = window.PG_UI;
+  const A = window.PG_Analyzer, P = window.PG_Providers, UI = window.PG_UI, L = window.PG_Lessons;
   const HOST = location.host || 'local-file';
+  // Storage keys this script writes itself; changes to them must not trigger a rescan.
+  const OWN_KEYS = ['stats', L.STORAGE_KEY];
 
-  const state = { enabled: true, trusted: new Set(), blocked: new Set(), enabledHosts: [], disabledHosts: [], active: false };
+  const state = { enabled: true, keepHistory: true, trusted: new Set(), blocked: new Set(), enabledHosts: [], disabledHosts: [], active: false };
   // Threat-list answers from the background worker: host or 'url:'+key -> hit object, or null if clean. Memory only.
   const threats = new Map();
   const verdicts = new Map(); // in-memory only: rowKey -> {level, score, known}
@@ -42,8 +46,9 @@
   }
 
   async function loadState() {
-    const s = await chrome.storage.local.get(['enabled', 'trusted', 'blocked', 'enabledHosts', 'disabledHosts']);
+    const s = await chrome.storage.local.get(['enabled', 'keepHistory', 'trusted', 'blocked', 'enabledHosts', 'disabledHosts']);
     state.enabled = s.enabled !== false;
+    state.keepHistory = s.keepHistory !== false;
     state.trusted = new Set(s.trusted || []);
     state.blocked = new Set(s.blocked || []);
     state.enabledHosts = s.enabledHosts || [];
@@ -79,6 +84,7 @@
         const a = A.analyzeEmail({ senderName: r.senderName, senderEmail: r.senderEmail, subject: r.subject, body: r.snippet, links: [], context: 'list' }, lists());
         res = { level: a.level, score: a.score, known: a.known, high: a.high, top: a.signals.slice(0, 2).map((x) => x.title), partial: true };
         count(key, res.level);
+        recordFlag(a, key, r.subject || r.snippet.slice(0, 80), true);
       }
       r.row.dataset.pgKey = key;
       r.row.dataset.pgLevel = res.level;
@@ -111,6 +117,7 @@
       const key = keyOf(m.senderEmail, m.senderName, m.subject);
       verdicts.set(key, { level: result.level, score: result.score, known: result.known, high: result.high, top: result.signals.slice(0, 2).map((x) => x.title) });
       count(key, result.level);
+      recordFlag(result, key, m.subject, false);
 
       const banner = UI.renderBanner(result, {
         reportHelp: adapter.reportHelp,
@@ -200,6 +207,26 @@
     }, 2000);
   }
 
+  // ---------- review history (flagged emails only, no body text) ----------
+  const pendingRecords = new Map();
+  let historyTimer = null;
+  function recordFlag(result, key, subject, partial) {
+    if (!state.keepHistory || result.level === 'safe') return;
+    const rec = L.buildRecord(result, { key, subject, site: HOST, provider: adapter ? adapter.label : '', partial });
+    pendingRecords.set(key, L.mergeRecord(pendingRecords.get(key), rec));
+    clearTimeout(historyTimer);
+    historyTimer = setTimeout(flushHistory, 1500);
+  }
+  async function flushHistory() {
+    if (!pendingRecords.size) return;
+    const recs = [...pendingRecords.values()];
+    pendingRecords.clear();
+    try {
+      const s = await chrome.storage.local.get([L.STORAGE_KEY]);
+      await chrome.storage.local.set({ [L.STORAGE_KEY]: L.mergeInto(s[L.STORAGE_KEY], recs) });
+    } catch (e) { /* extension reloaded */ }
+  }
+
   // ---------- lifecycle ----------
   // One scan at a time; if the page changes mid-scan, run once more afterwards.
   let scanning = false, rescan = false;
@@ -241,7 +268,7 @@
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'local') return;
     const keys = Object.keys(changes);
-    if (keys.every((k) => k === 'stats')) return;
+    if (keys.every((k) => OWN_KEYS.includes(k))) return;
     if (keys.includes('intelUpdated')) threats.clear(); // threat lists were refreshed: re-check everything
     await loadState();
     resetAll();
