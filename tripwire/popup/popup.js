@@ -12,9 +12,14 @@ $('tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
 let currentHost = null;
 
 async function render() {
-  const s = await chrome.storage.local.get(['enabled', 'stats', 'trusted', 'blocked', 'useFeed', 'enabledHosts', 'disabledHosts']);
+  const s = await chrome.storage.local.get(['enabled', 'stats', 'trusted', 'blocked', 'useFeed', 'enabledHosts', 'disabledHosts', 'keepHistory', 'flagHistory']);
   const st = s.stats || {};
   $('enabled').checked = s.enabled !== false;
+  $('keepHistory').checked = s.keepHistory !== false;
+  const hist = s.flagHistory || [];
+  const unreviewed = hist.filter((r) => !r.reviewed).length;
+  $('historyCount').textContent = unreviewed ? `${unreviewed} new` : String(hist.length);
+  $('historyCount').className = 'pill' + (unreviewed ? ' new' : '');
   $('sScanned').textContent = st.scanned || 0;
   $('sSusp').textContent = st.suspicious || 0;
   $('sPhish').textContent = st.phishing || 0;
@@ -96,7 +101,12 @@ async function toggleHost(key, host, add) {
   await chrome.storage.local.set({ [key]: [...cur] });
 }
 
-$('enabled').onchange = async (e) => { await chrome.storage.local.set({ enabled: e.target.checked }); render(); };
+$('historyBtn').onclick = () => { chrome.tabs.create({ url: chrome.runtime.getURL('popup/history.html') }); window.close(); };
+$('keepHistory').onchange = async (e) => {
+  if (!e.target.checked && !confirm('Stop keeping a review history?\n\nEmails already in the history stay until you clear them on the review page.')) { e.target.checked = true; return; }
+  await chrome.storage.local.set({ keepHistory: e.target.checked });
+};
+$('enabled').onchange =async (e) => { await chrome.storage.local.set({ enabled: e.target.checked }); render(); };
 $('useFeed').onchange = async (e) => {
   await chrome.storage.local.set({ useFeed: e.target.checked });
   if (e.target.checked) await chrome.runtime.sendMessage({ type: 'pg-update-feed' });

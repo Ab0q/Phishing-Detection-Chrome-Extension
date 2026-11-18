@@ -15,6 +15,16 @@ Spots phishing in webmail, colours risky emails in the inbox, explains *why* eac
 | Warns before you open risky links; hover any link to see its real destination | `src/content.js` → `guardLinks` |
 | Report button (with provider-specific how-to) plus a local block list; "I know this sender" trust list | `src/content.js`, popup |
 | Detection engine | `src/analyzer.js`, `src/data.js` |
+| **Flagged email review:** every email Tripwire flagged, with each warning sign explained as a lesson and a "Test yourself" quiz | `popup/history.html`, `src/lessons.js` |
+
+### Flagged email review (learn from past phishing)
+Open the toolbar popup → **Review flagged emails**. The page lists every email Tripwire has flagged on this computer (red and yellow), newest first, with a "new" badge on ones you haven't looked at.
+- **Why it was flagged:** each warning sign is shown as a lesson card: what Tripwire saw (the evidence), what it means, **how to spot it yourself**, and for common tricks a fake-vs-real example. Risky links are shown as text only, so they can't be clicked from the review page.
+- **Test yourself:** shows the sender, subject, links and wording, then asks you to tick the warning signs you can find. Real signs are mixed with a few that aren't there, and missed ones are explained.
+- **The tricks used on you:** with no email selected, the page ranks the warning signs that appear most in your flagged mail. Click one to filter the list. A lesson library covers every sign Tripwire checks for.
+- **Actions:** block the sender, mark "I know this sender" (adds to the trusted list and removes the entry), delete one entry, or clear the history.
+- Emails only seen in the inbox list are saved as a quick check. Opening the email replaces that with the full check. If an email later gets worse (suspicious → known phishing) it is marked unreviewed again.
+- Up to 300 entries are kept. Turn the history off in the popup under **Privacy & known-threat lists**.
 
 ### Detection signals
 - **Sender:** brand name shown in the display name while the address is a free account or another domain, lookalike domains (paypa1, rnicrosoft, Cyrillic letters, `brand-secure-login.com`, typos), an email address written in the display name, risky TLDs.
@@ -53,15 +63,16 @@ About 193,000 known-bad domains, IPs and URLs, compiled from free public feeds:
 ## Privacy
 - All analysis happens in the page, in memory. No email content, sender, or URL is ever transmitted.
 - The only network requests are GETs that download the public threat lists (can be turned off in the popup; the bundled list still works).
-- Stored on the device: on/off settings, counts, the user's trusted and reported lists, the downloaded threat lists.
+- Stored on the device: on/off settings, counts, the user's trusted and reported lists, the downloaded threat lists, and (unless turned off) the flagged-email review history: sender, subject, score, risky links and the warning signs with the short phrases that triggered them. Never the email body or its summary.
 
 ## Supported providers
 Gmail and Yahoo have dedicated adapters. Outlook and other webmail use an ARIA-based generic adapter. On any other webmail, click the toolbar icon → **Check emails on this site**.
 Webmail sites change their HTML often. If highlighting stops on a provider, update its selectors in `src/providers.js`.
 
 ## Tests
-Open `test/analyzer-tests.html` in Chrome (with file access allowed). It runs 80 checks:
+Open `test/analyzer-tests.html` in Chrome (with file access allowed). It runs 88 checks:
 - phishing samples and false-positive traps
 - phishing, malware and C2 list matches
 - that every source in the compiled list is detected
 - that 37 popular legitimate sites (Gmail, GitHub, Drive, banks…) are never flagged
+- review history: every warning sign has a lesson, records never contain the email body, merging and the 300-entry cap, quiz answers

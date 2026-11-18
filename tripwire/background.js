@@ -107,10 +107,11 @@ async function updateFeeds() {
 }
 
 chrome.runtime.onInstalled.addListener(async (details) => {
-  const s = await chrome.storage.local.get(['enabled', 'useFeed']);
+  const s = await chrome.storage.local.get(['enabled', 'useFeed', 'keepHistory']);
   const defaults = {};
   if (s.enabled === undefined) defaults.enabled = true;
   if (s.useFeed === undefined) defaults.useFeed = true;
+  if (s.keepHistory === undefined) defaults.keepHistory = true;
   await chrome.storage.local.set(defaults);
   await chrome.storage.local.remove(['feedHosts', 'feedSource', 'feedUpdated']); // old single-feed storage
   chrome.alarms.create('pg-feed', { periodInMinutes: REFRESH_MINUTES });
